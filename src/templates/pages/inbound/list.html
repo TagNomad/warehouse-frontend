@@ -57,6 +57,7 @@
             <label>数量 quantity<input class="input-base" type="number" min="1" x-model="form.quantity" style="width:90px"></label>
             <button class="btn btn-ghost btn-sm" @click="addLine()" :disabled="busy">加一行</button>
             <button class="btn btn-primary btn-sm" @click="complete()" :disabled="busy">完成入库</button>
+            <button class="btn btn-ghost btn-sm" @click="completeTogether()" :disabled="busy">同时完成 ×2</button>
           </div>
 
           <table style="margin-top:12px">

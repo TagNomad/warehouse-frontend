@@ -10,7 +10,7 @@ import { skusApi } from '@/pages/skus/skus.api'
 import type { SkuVO } from '@/pages/skus/skus.model'
 import { warehousesApi } from '@/pages/warehouses/warehouses.api'
 import type { LocationVO } from '@/pages/warehouses/warehouses.model'
-import { recordCall, type CallResult } from '@/core/ui/callResult'
+import { recordCall, callTime, type CallResult } from '@/core/ui/callResult'
 import { loadOrders, upsertOrder, clearOrders } from '@/core/ui/orderHistory'
 
 const STORE_KEY = 'wms.inboundOrders'
@@ -72,6 +72,26 @@ export function inboundPageComponent() {
       this.calls = recordCall(this.calls, `POST /inbound-orders/${id}/complete`, res)
       if (res.ok) this.keep(res.data)
       this.busy = false
+    },
+
+    /** 同一张单的两次请求先一起发出，分别记录结果；busy 只防误操作，不承担后端并发保护。 */
+    async completeTogether() {
+      if (!this.current || this.busy) return
+      const id = this.current.id
+      this.busy = true
+      const sentAt = callTime()
+      try {
+        const results = await Promise.all(
+          [1, 2].map((attempt) => inboundApi.complete(id).then((res) => ({ attempt, res, at: callTime() }))),
+        )
+        results.sort((a, b) => a.at.localeCompare(b.at))
+        for (const { attempt, res, at } of results) {
+          this.calls = recordCall(this.calls, `POST /inbound-orders/${id}/complete（第${attempt}次，${sentAt} 同时发出）`, res, at)
+          if (res.ok) this.keep(res.data)
+        }
+      } finally {
+        this.busy = false
+      }
     },
 
     clearHistory() {
